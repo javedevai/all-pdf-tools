@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { HashRouter, Routes, Route, useNavigate, useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { ALL_TOOLS } from './constants';
 import Sidebar from './components/Sidebar';
 
@@ -629,13 +629,15 @@ const ToolWorkspace = () => {
             <tool.icon size={28} className="md:w-8 md:h-8" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1 md:mb-2 leading-tight">{tool.name}</h1>
+            <div className="flex items-center gap-2 mb-1 md:mb-2">
+              <h1 className="text-xl md:text-3xl font-bold text-slate-900 dark:text-white leading-tight">{tool.name}</h1>
+              <button onClick={toggleFav} className="p-1.5 md:p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0">
+                <Heart size={20} className={clsx("md:w-6 md:h-6 transition-colors", isFavorite ? "fill-red-500 text-red-500" : "text-slate-400")} />
+              </button>
+            </div>
             <p className="text-xs md:text-base text-slate-500 dark:text-slate-400 line-clamp-2">{tool.description}</p>
           </div>
         </div>
-        <button onClick={toggleFav} className="p-2 md:p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0">
-          <Heart className={clsx("transition-colors", isFavorite ? "fill-red-500 text-red-500" : "text-slate-400")} />
-        </button>
       </div>
 
       {/* Workspace Card */}
@@ -671,172 +673,130 @@ const ToolWorkspace = () => {
 
         {/* QR Tool Specific Input */}
         {isQRTool && !result && (
-            <div className="flex-1 p-8">
-                <div className="max-w-4xl mx-auto">
-                    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-pink-900/20 rounded-3xl border-2 border-indigo-200 dark:border-indigo-800 p-8 shadow-2xl">
-                        <div className="flex items-start gap-4 mb-8">
-                            <div className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl">
-                                <QrCode className="w-10 h-10 text-white" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">QR Code Generator</h2>
-                                <p className="text-slate-600 dark:text-slate-300">Create professional QR codes embedded in PDF format</p>
-                            </div>
+            <div className="flex-1 p-4 md:p-8">
+                <div className="max-w-5xl mx-auto">
+                    {/* Header */}
+                    <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg mb-4">
+                            <QrCode className="w-8 h-8 text-white" />
                         </div>
+                        <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-2">QR Code Generator</h2>
+                        <p className="text-sm md:text-base text-slate-600 dark:text-slate-400">Create professional QR codes in PDF format</p>
+                    </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Input Section */}
-                            <div className="space-y-6">
-                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg">
-                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">Enter Content</label>
+                    {/* Main Content */}
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-700">
+                            {/* Left: Templates → Input */}
+                            <div className="p-4 md:p-6 space-y-4">
+                                {/* Templates */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Quick Templates</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button onClick={() => setOptions({...options, qrText: 'https://'})} className="px-2 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">🌐 URL</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'mailto:email@example.com'})} className="px-2 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">📧 Email</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'tel:+1234567890'})} className="px-2 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">📞 Phone</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'SMSTO:+1234567890:Hi'})} className="px-2 py-2 bg-pink-50 dark:bg-pink-900/20 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-medium hover:bg-pink-100 dark:hover:bg-pink-900/30 transition-colors">💬 SMS</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'WIFI:T:WPA;S:Network;P:pass;;'})} className="px-2 py-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors">📶 WiFi</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'BEGIN:VCARD\nVERSION:3.0\nFN:Name\nTEL:+123\nEND:VCARD'})} className="px-2 py-2 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 rounded-lg text-xs font-medium hover:bg-cyan-100 dark:hover:bg-cyan-900/30 transition-colors">👤 vCard</button>
+                                    </div>
+                                </div>
+
+                                {/* Input */}
+                                <div className="flex-1">
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Enter Content</label>
                                     <textarea 
                                         value={options.qrText}
                                         onChange={e => setOptions({...options, qrText: e.target.value})}
-                                        className="w-full h-40 p-4 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono text-sm resize-none"
-                                        placeholder="Enter URL, text, or any content...\n\nExamples:\n• https://example.com\n• Contact: +1-234-567-8900\n• WiFi:T:WPA;S:NetworkName;P:password;;\n• mailto:hello@example.com"
+                                        className="w-full h-48 p-3 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm resize-none"
+                                        placeholder="https://example.com\nContact: +1-234-567-8900\nWiFi:T:WPA;S:Network;P:pass;;"
                                     />
-                                    <div className="flex items-center justify-between mt-3">
-                                        <span className="text-xs text-slate-500 dark:text-slate-400">{options.qrText.length} characters</span>
+                                    <div className="flex items-center justify-between mt-2">
+                                        <span className="text-xs text-slate-500">{options.qrText.length} chars</span>
                                         {options.qrText && (
                                             <button onClick={() => setOptions({...options, qrText: ''})} className="text-xs text-red-500 hover:text-red-600 font-medium">Clear</button>
                                         )}
                                     </div>
                                 </div>
-
-                                {/* Generate Button - Mobile Only (appears after Enter Content) */}
-                                <div className="lg:hidden">
-                                    <button 
-                                        onClick={handleProcess}
-                                        disabled={!options.qrText || isProcessing}
-                                        className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-black text-lg shadow-2xl hover:shadow-3xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3 hover:-translate-y-1"
-                                    >
-                                        {isProcessing ? (
-                                            <>
-                                                <Loader2 className="animate-spin w-6 h-6" />
-                                                Generating QR PDF...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <QrCode className="w-6 h-6" />
-                                                Generate QR Code PDF
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-
-                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg">
-                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">Smart Templates</label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button onClick={() => setOptions({...options, qrText: 'https://'})} className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">🌐 Website</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'mailto:email@example.com?subject=Hello&body=Message'})} className="px-3 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-semibold hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors">📧 Email</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'tel:+1234567890'})} className="px-3 py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-semibold hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">📞 Phone</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'SMSTO:+1234567890:Hello!'})} className="px-3 py-2 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-semibold hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">💬 SMS</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'https://wa.me/1234567890?text=Hello'})} className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors">💚 WhatsApp</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'WIFI:T:WPA;S:NetworkName;P:password;;'})} className="px-3 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">📶 WiFi</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'BEGIN:VCARD\nVERSION:3.0\nFN:John Doe\nTEL:+1234567890\nEMAIL:john@example.com\nEND:VCARD'})} className="px-3 py-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded-lg text-xs font-semibold hover:bg-cyan-200 dark:hover:bg-cyan-900/50 transition-colors">👤 vCard</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'geo:37.7749,-122.4194?q=San Francisco'})} className="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">📍 Location</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'BEGIN:VEVENT\nSUMMARY:Meeting\nDTSTART:20240101T100000\nDTEND:20240101T110000\nLOCATION:Office\nEND:VEVENT'})} className="px-3 py-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-lg text-xs font-semibold hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors">📅 Event</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'https://www.paypal.me/username/50'})} className="px-3 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors">💳 Payment</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'https://twitter.com/username'})} className="px-3 py-2 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold hover:bg-sky-200 dark:hover:bg-sky-900/50 transition-colors">🐦 Twitter</button>
-                                        <button onClick={() => setOptions({...options, qrText: 'https://instagram.com/username'})} className="px-3 py-2 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 rounded-lg text-xs font-semibold hover:bg-fuchsia-200 dark:hover:bg-fuchsia-900/50 transition-colors">📸 Instagram</button>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg space-y-4">
-                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">QR Options</label>
-                                    
-                                    <div>
-                                        <label className="block text-xs text-slate-600 dark:text-slate-400 mb-2">Error Correction</label>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {['L', 'M', 'Q', 'H'].map(level => (
-                                                <button key={level} onClick={() => setOptions({...options, qrErrorCorrection: level})} className={`py-2 rounded-lg text-xs font-semibold transition-colors ${options.qrErrorCorrection === level ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>{level}</button>
-                                            ))}
-                                        </div>
-                                        <p className="text-xs text-slate-500 mt-1">Higher = more damage resistant</p>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs text-slate-600 dark:text-slate-400 mb-2">QR Size: {options.qrSize}px</label>
-                                        <input type="range" min="200" max="800" step="50" value={options.qrSize} onChange={e => setOptions({...options, qrSize: parseInt(e.target.value)})} className="w-full" />
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <input type="checkbox" checked={options.qrIncludeText} onChange={e => setOptions({...options, qrIncludeText: e.target.checked})} className="w-4 h-4" />
-                                        <label className="text-xs text-slate-700 dark:text-slate-300">Include text below QR code</label>
-                                    </div>
-                                </div>
                             </div>
 
-                            {/* Preview Section */}
-                            <div className="space-y-6">
-                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg">
-                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wide">Live Preview - Scan This!</label>
-                                    <div className="aspect-square bg-white rounded-xl flex items-center justify-center border-2 border-slate-200 dark:border-slate-600 p-4">
+                            {/* Right: Preview → Options */}
+                            <div className="p-4 md:p-6 space-y-4">
+                                {/* Preview */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Live Preview</label>
+                                    <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-xl p-6 min-h-[200px]">
                                         {options.qrText ? (
-                                            <div className="text-center w-full">
-                                                <div className="w-full aspect-square bg-white rounded-lg shadow-xl flex items-center justify-center p-4">
+                                            <div className="text-center">
+                                                <div className="bg-white p-4 rounded-lg shadow-lg inline-block">
                                                     <canvas 
                                                         ref={(canvas) => {
                                                             if (canvas && options.qrText) {
                                                                 import('qrcode').then(QRCode => {
                                                                     QRCode.toCanvas(canvas, options.qrText, {
-                                                                        width: 300,
-                                                                        margin: 2,
+                                                                        width: 200,
+                                                                        margin: 1,
                                                                         errorCorrectionLevel: options.qrErrorCorrection || 'H',
                                                                         color: { dark: '#000000', light: '#FFFFFF' }
                                                                     }).catch(err => console.error('QR Error:', err));
                                                                 });
                                                             }
                                                         }}
-                                                        className="w-full h-full"
+                                                        className="w-full max-w-[200px]"
                                                     />
                                                 </div>
-                                                <p className="text-xs text-green-600 dark:text-green-400 mt-3 font-semibold">✓ Scan this with your phone!</p>
+                                                <p className="text-xs text-green-600 dark:text-green-400 mt-3 font-medium">✓ Ready to scan</p>
                                             </div>
                                         ) : (
-                                            <div className="text-center p-8">
-                                                <QrCode className="w-20 h-20 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                                            <div className="text-center">
+                                                <QrCode className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
                                                 <p className="text-sm text-slate-400 dark:text-slate-500">Enter content to preview</p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
-                                    <div className="flex items-start gap-3">
-                                        <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
-                                        <div>
-                                            <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1">Pro Tips:</p>
-                                            <ul className="text-xs text-amber-800 dark:text-amber-300 space-y-1">
-                                                <li>• Keep URLs short for better scanning</li>
-                                                <li>• Test QR code before printing</li>
-                                                <li>• High contrast works best</li>
-                                            </ul>
+                                {/* Options */}
+                                <div className="space-y-3">
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Options</label>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-xs text-slate-600 dark:text-slate-400">Error Correction</label>
+                                            <div className="flex gap-1">
+                                                {['L', 'M', 'Q', 'H'].map(level => (
+                                                    <button key={level} onClick={() => setOptions({...options, qrErrorCorrection: level})} className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${options.qrErrorCorrection === level ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{level}</button>
+                                                ))}
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="checkbox" id="includeText" checked={options.qrIncludeText} onChange={e => setOptions({...options, qrIncludeText: e.target.checked})} className="w-4 h-4 rounded" />
+                                        <label htmlFor="includeText" className="text-xs text-slate-700 dark:text-slate-300">Include text below QR</label>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Generate Button - Desktop Only (appears at bottom) */}
-                        <div className="mt-8 hidden lg:block">
+                        {/* Generate Button */}
+                        <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
                             <button 
                                 onClick={handleProcess}
                                 disabled={!options.qrText || isProcessing}
-                                className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-black text-lg shadow-2xl hover:shadow-3xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3 hover:-translate-y-1"
+                                className="w-full py-3 md:py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-sm md:text-base shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                             >
                                 {isProcessing ? (
                                     <>
-                                        <Loader2 className="animate-spin w-6 h-6" />
-                                        Generating QR PDF...
+                                        <Loader2 className="animate-spin w-5 h-5" />
+                                        Generating...
                                     </>
                                 ) : (
                                     <>
-                                        <QrCode className="w-6 h-6" />
+                                        <Download className="w-5 h-5" />
                                         Generate QR Code PDF
                                     </>
                                 )}
                             </button>
+                            <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-3">💡 Tip: Use high error correction (H) for better scanning</p>
                         </div>
                     </div>
                 </div>
@@ -2137,7 +2097,7 @@ const App = () => {
   }, [isDark]);
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex font-sans">
         <Sidebar isOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} />
         
@@ -2162,7 +2122,7 @@ const App = () => {
 
         </main>
       </div>
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 
