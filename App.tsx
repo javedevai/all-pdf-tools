@@ -2,10 +2,12 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { ALL_TOOLS } from './constants';
 import Sidebar from './components/Sidebar';
-import { Search, Sun, Moon, Upload, FileText, ArrowRight, X, Heart, Loader2, CheckCircle, Download, Menu, Clock, Settings, MoveUp, MoveDown, Trash, RefreshCw, Grid2X2, QrCode, FileType, LayoutTemplate } from 'lucide-react';
+
+import { Search, Sun, Moon, Upload, FileText, ArrowRight, X, Heart, Loader2, CheckCircle, Download, Menu, Clock, Settings, MoveUp, MoveDown, Trash, RefreshCw, Grid2X2, QrCode, FileType, LayoutTemplate, Unlock } from 'lucide-react';
 import { Tool, ToolCategory } from './types';
 import { processPDF, getPageCount } from './services/pdfService';
 import clsx from 'clsx';
+
 
 // --- COMPONENTS DEFINED IN-FILE FOR SINGLE XML CONSTRAINT ---
 
@@ -58,13 +60,47 @@ const Header = ({ toggleTheme, isDark, setMobileMenuOpen }: any) => {
     }
   };
 
+  // Levenshtein distance for fuzzy matching
+  const levenshtein = (a: string, b: string): number => {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        matrix[i][j] = b.charAt(i - 1) === a.charAt(j - 1)
+          ? matrix[i - 1][j - 1]
+          : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      }
+    }
+    return matrix[b.length][a.length];
+  };
+
   const filteredTools = useMemo(() => {
      if (!query) return [];
      const lowerQ = query.toLowerCase();
-     return ALL_TOOLS.filter(t => 
-       t.name.toLowerCase().includes(lowerQ) || 
-       t.description.toLowerCase().includes(lowerQ)
-     ).slice(0, 8); // Limit to 8 results for dropdown
+     
+     return ALL_TOOLS.filter(t => {
+       const name = t.name.toLowerCase();
+       const desc = t.description.toLowerCase();
+       
+       // Exact match or contains
+       if (name.includes(lowerQ) || desc.includes(lowerQ)) return true;
+       
+       // Fuzzy match on name words (allow 1-2 character difference)
+       const nameWords = name.split(' ');
+       const queryWords = lowerQ.split(' ');
+       
+       for (const qWord of queryWords) {
+         if (qWord.length < 3) continue; // Skip very short words
+         for (const nWord of nameWords) {
+           const distance = levenshtein(qWord, nWord);
+           const threshold = qWord.length <= 4 ? 1 : 2; // Allow 1 typo for short words, 2 for longer
+           if (distance <= threshold) return true;
+         }
+       }
+       
+       return false;
+     }).slice(0, 8); // Limit to 8 results for dropdown
   }, [query]);
 
   const clearSearch = () => {
@@ -76,86 +112,94 @@ const Header = ({ toggleTheme, isDark, setMobileMenuOpen }: any) => {
   const handleResultClick = () => {
       setQuery('');
       setIsOpen(false);
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && filteredTools.length === 1) {
+      const tool = filteredTools[0];
+      navigate(`/tool/${tool.id}`);
+      handleResultClick();
+    }
   };
 
   return (
-    <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 px-4 lg:px-8 flex items-center justify-between">
-      <div className="flex items-center gap-4 flex-1">
-        <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 text-slate-600 dark:text-slate-300">
-          <Menu size={24} />
-        </button>
-        
-        {/* Smart Search Bar */}
-        <div className="relative w-full max-w-md hidden md:block" ref={wrapperRef}>
-            <div className="relative group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={18} />
-                <input 
-                    type="text" 
-                    placeholder="Search 100+ tools (e.g. 'merge', 'word')" 
-                    value={query}
-                    onChange={handleSearchChange}
-                    onFocus={() => {
-                        if (query && location.pathname !== '/') setIsOpen(true);
-                    }}
-                    className="w-full pl-10 pr-10 py-2.5 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-transparent focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 outline-none transition-all dark:text-white shadow-sm font-medium text-sm"
-                />
-                {query && (
-                    <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                        <X size={14} />
-                    </button>
-                )}
-            </div>
+    <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 px-4 lg:px-8 flex items-center justify-between gap-3">
+      <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden p-2 text-slate-600 dark:text-slate-300 flex-shrink-0">
+        <Menu size={24} />
+      </button>
+      
+      {/* Smart Search Bar */}
+      <div className="relative flex-1 max-w-md" ref={wrapperRef}>
+          <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={16} />
+              <input 
+                  type="text" 
+                  placeholder="Search tools..." 
+                  value={query}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => {
+                      if (query && location.pathname !== '/') setIsOpen(true);
+                  }}
+                  className="w-full pl-9 pr-9 py-2 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-transparent focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 outline-none transition-all dark:text-white shadow-sm text-sm"
+              />
+              {query && (
+                  <button onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                      <X size={14} />
+                  </button>
+              )}
+          </div>
 
-            {/* Dropdown Results (Not on Home) */}
-            {isOpen && location.pathname !== '/' && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-black/50 border border-slate-100 dark:border-slate-700 overflow-hidden animate-fade-in z-50">
-                    {filteredTools.length > 0 ? (
-                        <>
-                            <div className="max-h-[60vh] overflow-y-auto py-2">
-                                <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Jump</div>
-                                {filteredTools.map(tool => (
-                                    <Link 
-                                        key={tool.id} 
-                                        to={`/tool/${tool.id}`} 
-                                        onClick={handleResultClick}
-                                        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group border-l-4 border-transparent hover:border-primary-500"
-                                    >
-                                        <div className="p-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 rounded-lg group-hover:scale-110 transition-transform">
-                                            <tool.icon size={18} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-medium text-slate-900 dark:text-white text-sm truncate group-hover:text-primary-600 transition-colors">{tool.name}</h4>
-                                            <p className="text-xs text-slate-500 truncate">{tool.description}</p>
-                                        </div>
-                                        <ArrowRight size={14} className="text-slate-300 group-hover:text-primary-500 -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
-                                    </Link>
-                                ))}
-                            </div>
-                            <Link 
-                                to={`/?search=${query}`} 
-                                onClick={handleResultClick}
-                                className="block w-full text-center py-3 text-xs font-bold text-primary-600 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            >
-                                See all {filteredTools.length}+ results on Home Page
-                            </Link>
-                        </>
-                    ) : (
-                        <div className="p-8 text-center text-slate-500">
-                            <Search size={24} className="mx-auto mb-2 opacity-20" />
-                            <p className="text-sm">No tools found for "{query}"</p>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+          {/* Dropdown Results (Not on Home) */}
+          {isOpen && location.pathname !== '/' && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-xl md:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fade-in z-50 max-h-[70vh] md:max-h-[60vh]">
+                  {filteredTools.length > 0 ? (
+                      <>
+                          <div className="overflow-y-auto py-2">
+                              <div className="px-3 md:px-4 py-2 text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Jump</div>
+                              {filteredTools.map(tool => (
+                                  <Link 
+                                      key={tool.id} 
+                                      to={`/tool/${tool.id}`} 
+                                      onClick={handleResultClick}
+                                      className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group border-l-2 md:border-l-4 border-transparent hover:border-primary-500"
+                                  >
+                                      <div className="p-1.5 md:p-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 rounded-lg group-hover:scale-110 transition-transform flex-shrink-0">
+                                          <tool.icon size={16} className="md:w-[18px] md:h-[18px]" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <h4 className="font-medium text-slate-900 dark:text-white text-xs md:text-sm truncate group-hover:text-primary-600 transition-colors">{tool.name}</h4>
+                                          <p className="text-[10px] md:text-xs text-slate-500 truncate hidden sm:block">{tool.description}</p>
+                                      </div>
+                                      <ArrowRight size={14} className="text-slate-300 group-hover:text-primary-500 -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all hidden md:block" />
+                                  </Link>
+                              ))}
+                          </div>
+                          <Link 
+                              to={`/?search=${query}`} 
+                              onClick={handleResultClick}
+                              className="block w-full text-center py-2.5 md:py-3 text-[10px] md:text-xs font-bold text-primary-600 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                              See all results
+                          </Link>
+                      </>
+                  ) : (
+                      <div className="p-6 md:p-8 text-center text-slate-500">
+                          <Search size={20} className="md:w-6 md:h-6 mx-auto mb-2 opacity-20" />
+                          <p className="text-xs md:text-sm">No tools found</p>
+                      </div>
+                  )}
+              </div>
+          )}
       </div>
-      <div className="flex items-center gap-3">
-         {/* Auth Mock */}
+      
+      <div className="flex items-center gap-2 flex-shrink-0">
         <button className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 px-3 py-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs">A</div>
             <span>Account</span>
         </button>
-        <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+        <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 flex-shrink-0">
           {isDark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
       </div>
@@ -165,20 +209,20 @@ const Header = ({ toggleTheme, isDark, setMobileMenuOpen }: any) => {
 
 // 2. TOOL CARD
 const ToolCard: React.FC<{ tool: Tool }> = ({ tool }) => (
-  <Link to={`/tool/${tool.id}`} className="group relative bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col items-start gap-4 h-full">
+  <Link to={`/tool/${tool.id}`} className="group relative bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl md:rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col items-start gap-3 md:gap-4 h-full active:scale-95">
     {tool.popular && (
-      <span className="absolute top-4 right-4 bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">
+      <span className="absolute top-3 right-3 md:top-4 md:right-4 bg-amber-100 text-amber-700 text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 md:px-2 md:py-1 rounded-full uppercase tracking-wide">
         Hot
       </span>
     )}
-    <div className="p-3 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 group-hover:scale-110 transition-transform duration-300">
-      <tool.icon size={28} strokeWidth={1.5} />
+    <div className="p-2 md:p-3 rounded-lg md:rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 group-hover:scale-110 transition-transform duration-300">
+      <tool.icon size={24} className="md:w-7 md:h-7" strokeWidth={1.5} />
     </div>
     <div>
-      <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-primary-600 transition-colors">
+      <h3 className="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-primary-600 transition-colors leading-tight">
         {tool.name}
       </h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+      <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
         {tool.description}
       </p>
     </div>
@@ -191,12 +235,48 @@ const HomePage = () => {
   const { cat } = useParams<{ cat: string }>(); 
   const query = searchParams.get('search') || '';
   
+  // Levenshtein distance for fuzzy matching
+  const levenshtein = (a: string, b: string): number => {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        matrix[i][j] = b.charAt(i - 1) === a.charAt(j - 1)
+          ? matrix[i - 1][j - 1]
+          : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      }
+    }
+    return matrix[b.length][a.length];
+  };
+
   const filteredTools = useMemo(() => {
     let tools = ALL_TOOLS;
     if (cat) tools = tools.filter(t => t.category === cat);
     if (query) {
       const q = query.toLowerCase();
-      tools = tools.filter(t => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
+      tools = tools.filter(t => {
+        const name = t.name.toLowerCase();
+        const desc = t.description.toLowerCase();
+        
+        // Exact match or contains
+        if (name.includes(q) || desc.includes(q)) return true;
+        
+        // Fuzzy match on name words (allow 1-2 character difference)
+        const nameWords = name.split(' ');
+        const queryWords = q.split(' ');
+        
+        for (const qWord of queryWords) {
+          if (qWord.length < 3) continue;
+          for (const nWord of nameWords) {
+            const distance = levenshtein(qWord, nWord);
+            const threshold = qWord.length <= 4 ? 1 : 2;
+            if (distance <= threshold) return true;
+          }
+        }
+        
+        return false;
+      });
     }
     return tools;
   }, [query, cat]);
@@ -204,13 +284,13 @@ const HomePage = () => {
   const categories = Object.values(ToolCategory);
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-12 animate-fade-in">
+    <div className="p-4 md:p-6 lg:p-10 max-w-7xl mx-auto space-y-8 md:space-y-12 animate-fade-in">
       {!query && !cat && (
-        <div className="text-center space-y-6 py-12">
-          <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tight">
+        <div className="text-center space-y-4 md:space-y-6 py-8 md:py-12 px-2">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
             Every PDF Tool <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-indigo-600">You Need.</span>
           </h1>
-          <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+          <p className="text-base md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
             Merge, split, compress, convert, rotate, unlock and watermark PDFs with just a few clicks. 100% Client-side privacy.
           </p>
         </div>
@@ -218,29 +298,29 @@ const HomePage = () => {
 
       {(query || cat) ? (
          <>
-           <div className="mb-6 flex items-center gap-2 text-lg text-slate-600 dark:text-slate-400">
+           <div className="mb-4 md:mb-6 flex items-center gap-2 text-sm md:text-lg text-slate-600 dark:text-slate-400 px-1">
              {query ? (
-                <>Found {filteredTools.length} tools for "<span className="font-bold text-slate-900 dark:text-white">{query}</span>"</>
+                <><span className="text-xs md:text-base">Found {filteredTools.length} tools for</span> "<span className="font-bold text-slate-900 dark:text-white">{query}</span>"</>
              ) : (
                 <>
-                  <Link to="/" className="hover:text-primary-500 transition-colors">All Tools</Link> 
+                  <Link to="/" className="hover:text-primary-500 transition-colors text-sm md:text-base">All Tools</Link> 
                   <span>/</span> 
-                  <span className="font-bold text-slate-900 dark:text-white">{cat}</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm md:text-base">{cat}</span>
                 </>
              )}
            </div>
            
            {filteredTools.length > 0 ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                  {filteredTools.map(tool => <ToolCard key={tool.id} tool={tool} />)}
                </div>
            ) : (
-               <div className="flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
-                   <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
-                       <Search size={32} />
+               <div className="flex flex-col items-center justify-center py-16 md:py-20 text-slate-500 dark:text-slate-400 px-4">
+                   <div className="p-3 md:p-4 rounded-full bg-slate-100 dark:bg-slate-800 mb-3 md:mb-4">
+                       <Search size={28} className="md:w-8 md:h-8" />
                    </div>
-                   <p className="text-lg font-medium">No tools found for "{query}"</p>
-                   <button onClick={() => window.location.href='/'} className="mt-4 text-primary-600 hover:underline">View all tools</button>
+                   <p className="text-base md:text-lg font-medium">No tools found for "{query}"</p>
+                   <button onClick={() => window.location.href='/'} className="mt-3 md:mt-4 text-sm md:text-base text-primary-600 hover:underline">View all tools</button>
                </div>
            )}
          </>
@@ -249,15 +329,15 @@ const HomePage = () => {
           const catTools = ALL_TOOLS.filter(t => t.category === categoryName);
           if (catTools.length === 0) return null;
           return (
-            <div key={categoryName} className="space-y-6">
-              <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200">{categoryName}</h2>
+            <div key={categoryName} className="space-y-4 md:space-y-6">
+              <div className="flex items-center gap-3 md:gap-4 px-1">
+                <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-200">{categoryName}</h2>
                 <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
-                <Link to={`/category/${categoryName}`} className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+                <Link to={`/category/${categoryName}`} className="text-xs md:text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 whitespace-nowrap">
                   View All
                 </Link>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                 {catTools.map(tool => <ToolCard key={tool.id} tool={tool} />)}
               </div>
             </div>
@@ -300,6 +380,11 @@ const ToolWorkspace = () => {
     margin: 'small', // none, small, big
     // QR
     qrText: '',
+    qrSize: 600,
+    qrErrorCorrection: 'H',
+    qrIncludeText: true,
+    qrColor: '#000000',
+    qrBgColor: '#ffffff',
     // Text
     fontSize: 12,
     // PDF to Image options
@@ -397,9 +482,22 @@ const ToolWorkspace = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles: File[] = Array.from(e.target.files);
+      
+
       setFiles(prev => [...prev, ...newFiles]);
       setResult(null);
       setError(null);
+
+      // Auto-detect encrypt/decrypt mode for protect-pdf tool
+      if (tool?.id === 'protect-pdf' && newFiles[0]) {
+        if (newFiles[0].name.endsWith('.aes256')) {
+          setEncryptMode('decrypt');
+          setOptions({...options, password: ''}); // Clear password when switching to decrypt
+        } else {
+          setEncryptMode('encrypt');
+          setOptions({...options, password: ''}); // Clear password when switching to encrypt
+        }
+      }
 
       // Generate previews for images
       const newPreviews: Record<string, string> = {};
@@ -449,7 +547,9 @@ const ToolWorkspace = () => {
     try {
       if (!id) throw new Error("No tool ID");
       const finalOptions = { ...options, pageOrder };
-      const res = await processPDF(id, files, finalOptions);
+      // Use decrypt-pdf for decrypt mode in protect-pdf tool
+      const toolId = (id === 'protect-pdf' && encryptMode === 'decrypt') ? 'decrypt-pdf' : id;
+      const res = await processPDF(toolId, files, finalOptions);
       setResult(res);
       
       const hist = JSON.parse(localStorage.getItem('history') || '[]');
@@ -473,6 +573,21 @@ const ToolWorkspace = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const getFileIcon = (fileName: string) => {
+    if (fileName.endsWith('.pdf')) return '📄';
+    if (fileName.match(/\.(jpg|jpeg|png|bmp|tiff|webp)$/i)) return '🖼️';
+    if (fileName.match(/\.(txt|csv|json|html|xml)$/i)) return '📝';
+    if (fileName.match(/\.(doc|docx|ppt|pptx|xls|xlsx)$/i)) return '📊';
+    if (fileName.endsWith('.aes256')) return '🔒';
+    return '📦';
+  };
+
+  const getFileExtension = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toUpperCase();
+    return ext || 'FILE';
   };
 
   if (!tool) return <div className="p-10 text-center">Tool not found</div>;
@@ -484,6 +599,7 @@ const ToolWorkspace = () => {
   const isCompressTool = tool.id === 'compress-pdf';
   const isUnlockTool = tool.id === 'unlock-pdf';
   const isProtectTool = tool.id === 'protect-pdf';
+  const [encryptMode, setEncryptMode] = useState<'encrypt' | 'decrypt'>('encrypt');
   const isWatermarkTool = tool.id === 'watermark-pdf';
   const isChangePasswordTool = tool.id === 'change-password';
   const isGrayscaleTool = tool.id === 'grayscale-pdf';
@@ -505,73 +621,231 @@ const ToolWorkspace = () => {
   const isShareLinkTool = tool.id === 'share-link';
 
   return (
-    <div className="max-w-5xl mx-auto p-6 lg:p-12 animate-slide-up">
+    <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-12 animate-slide-up">
       {/* Tool Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <div className="p-4 bg-primary-100 dark:bg-primary-900/40 rounded-2xl text-primary-600 dark:text-primary-400">
-            <tool.icon size={32} />
+      <div className="flex items-start justify-between mb-6 md:mb-8 gap-3">
+        <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+          <div className="p-3 md:p-4 bg-primary-100 dark:bg-primary-900/40 rounded-xl md:rounded-2xl text-primary-600 dark:text-primary-400 flex-shrink-0">
+            <tool.icon size={28} className="md:w-8 md:h-8" />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{tool.name}</h1>
-            <p className="text-slate-500 dark:text-slate-400 max-w-lg">{tool.description}</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1 md:mb-2 leading-tight">{tool.name}</h1>
+            <p className="text-xs md:text-base text-slate-500 dark:text-slate-400 line-clamp-2">{tool.description}</p>
           </div>
         </div>
-        <button onClick={toggleFav} className="p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button onClick={toggleFav} className="p-2 md:p-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0">
           <Heart className={clsx("transition-colors", isFavorite ? "fill-red-500 text-red-500" : "text-slate-400")} />
         </button>
       </div>
 
       {/* Workspace Card */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-black/20 border border-slate-100 dark:border-slate-700 overflow-hidden min-h-[500px] flex flex-col">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl md:rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-black/20 border border-slate-100 dark:border-slate-700 overflow-hidden min-h-[400px] md:min-h-[500px] flex flex-col">
         
         {/* State: Initial Upload OR Input */}
         {!files.length && !isQRTool && (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 m-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors cursor-pointer relative">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 m-3 md:m-4 rounded-xl md:rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors cursor-pointer relative active:scale-[0.99]">
             <input 
               type="file" 
               multiple 
               onChange={handleFileChange} 
               className="absolute inset-0 opacity-0 cursor-pointer" 
               accept={
-                 isImageTool ? 'image/*' :
-                 tool.id.includes('to-pdf') ? '.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.html,.rtf,.odt,.epub' : 
-                 '.pdf'
+                 isImageTool ? 'image/jpeg,image/jpg,image/png,image/bmp,image/webp,image/svg+xml,image/heic' :
+                 tool.id === 'word-to-pdf' ? '.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+                 tool.id === 'powerpoint-to-pdf' ? '.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation' :
+                 tool.id === 'excel-to-pdf' ? '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+                 tool.id === 'txt-to-pdf' ? '.txt,text/plain' :
+                 tool.id === 'markdown-to-pdf' ? '.md,text/markdown' :
+                 tool.id === 'html-to-pdf' ? '.html,.htm,text/html' :
+                 isProtectTool ? '.pdf,.aes256,application/pdf,application/octet-stream' :
+                 '.pdf,application/pdf'
               } 
             />
-            <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-full shadow-lg flex items-center justify-center mb-6 text-primary-500">
-              <Upload size={32} />
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-white dark:bg-slate-800 rounded-full shadow-lg flex items-center justify-center mb-4 md:mb-6 text-primary-500">
+              <Upload size={28} className="md:w-8 md:h-8" />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Drop files here or click to upload</h3>
-            <p className="text-slate-500 text-sm">Supports multiple files for batch operations</p>
+            <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-2 px-4">Drop files here or tap to upload</h3>
+            <p className="text-slate-500 text-xs md:text-sm px-4">Supports multiple files for batch operations</p>
           </div>
         )}
 
         {/* QR Tool Specific Input */}
         {isQRTool && !result && (
-            <div className="flex-1 p-8 flex flex-col items-center justify-center">
-                <div className="w-full max-w-md space-y-4">
-                    <label className="block text-lg font-medium text-slate-900 dark:text-white">Enter Text or URL</label>
-                    <textarea 
-                        value={options.qrText}
-                        onChange={e => setOptions({...options, qrText: e.target.value})}
-                        className="w-full h-32 p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary-500 outline-none"
-                        placeholder="https://example.com"
-                    />
-                     <button 
-                        onClick={handleProcess}
-                        disabled={!options.qrText || isProcessing}
-                        className="w-full py-4 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-colors flex justify-center items-center gap-2"
-                    >
-                        {isProcessing ? <Loader2 className="animate-spin" /> : <QrCode />} Generate QR PDF
-                    </button>
+            <div className="flex-1 p-8">
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-900/20 dark:via-purple-900/20 dark:to-pink-900/20 rounded-3xl border-2 border-indigo-200 dark:border-indigo-800 p-8 shadow-2xl">
+                        <div className="flex items-start gap-4 mb-8">
+                            <div className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl">
+                                <QrCode className="w-10 h-10 text-white" />
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">QR Code Generator</h2>
+                                <p className="text-slate-600 dark:text-slate-300">Create professional QR codes embedded in PDF format</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Input Section */}
+                            <div className="space-y-6">
+                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg">
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">Enter Content</label>
+                                    <textarea 
+                                        value={options.qrText}
+                                        onChange={e => setOptions({...options, qrText: e.target.value})}
+                                        className="w-full h-40 p-4 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all font-mono text-sm resize-none"
+                                        placeholder="Enter URL, text, or any content...\n\nExamples:\n• https://example.com\n• Contact: +1-234-567-8900\n• WiFi:T:WPA;S:NetworkName;P:password;;\n• mailto:hello@example.com"
+                                    />
+                                    <div className="flex items-center justify-between mt-3">
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">{options.qrText.length} characters</span>
+                                        {options.qrText && (
+                                            <button onClick={() => setOptions({...options, qrText: ''})} className="text-xs text-red-500 hover:text-red-600 font-medium">Clear</button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Generate Button - Mobile Only (appears after Enter Content) */}
+                                <div className="lg:hidden">
+                                    <button 
+                                        onClick={handleProcess}
+                                        disabled={!options.qrText || isProcessing}
+                                        className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-black text-lg shadow-2xl hover:shadow-3xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3 hover:-translate-y-1"
+                                    >
+                                        {isProcessing ? (
+                                            <>
+                                                <Loader2 className="animate-spin w-6 h-6" />
+                                                Generating QR PDF...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <QrCode className="w-6 h-6" />
+                                                Generate QR Code PDF
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+
+                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg">
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">Smart Templates</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={() => setOptions({...options, qrText: 'https://'})} className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">🌐 Website</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'mailto:email@example.com?subject=Hello&body=Message'})} className="px-3 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-semibold hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors">📧 Email</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'tel:+1234567890'})} className="px-3 py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-semibold hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">📞 Phone</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'SMSTO:+1234567890:Hello!'})} className="px-3 py-2 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded-lg text-xs font-semibold hover:bg-pink-200 dark:hover:bg-pink-900/50 transition-colors">💬 SMS</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'https://wa.me/1234567890?text=Hello'})} className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-semibold hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors">💚 WhatsApp</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'WIFI:T:WPA;S:NetworkName;P:password;;'})} className="px-3 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg text-xs font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors">📶 WiFi</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'BEGIN:VCARD\nVERSION:3.0\nFN:John Doe\nTEL:+1234567890\nEMAIL:john@example.com\nEND:VCARD'})} className="px-3 py-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 rounded-lg text-xs font-semibold hover:bg-cyan-200 dark:hover:bg-cyan-900/50 transition-colors">👤 vCard</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'geo:37.7749,-122.4194?q=San Francisco'})} className="px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">📍 Location</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'BEGIN:VEVENT\nSUMMARY:Meeting\nDTSTART:20240101T100000\nDTEND:20240101T110000\nLOCATION:Office\nEND:VEVENT'})} className="px-3 py-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-lg text-xs font-semibold hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors">📅 Event</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'https://www.paypal.me/username/50'})} className="px-3 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors">💳 Payment</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'https://twitter.com/username'})} className="px-3 py-2 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold hover:bg-sky-200 dark:hover:bg-sky-900/50 transition-colors">🐦 Twitter</button>
+                                        <button onClick={() => setOptions({...options, qrText: 'https://instagram.com/username'})} className="px-3 py-2 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 rounded-lg text-xs font-semibold hover:bg-fuchsia-200 dark:hover:bg-fuchsia-900/50 transition-colors">📸 Instagram</button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg space-y-4">
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wide">QR Options</label>
+                                    
+                                    <div>
+                                        <label className="block text-xs text-slate-600 dark:text-slate-400 mb-2">Error Correction</label>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {['L', 'M', 'Q', 'H'].map(level => (
+                                                <button key={level} onClick={() => setOptions({...options, qrErrorCorrection: level})} className={`py-2 rounded-lg text-xs font-semibold transition-colors ${options.qrErrorCorrection === level ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}>{level}</button>
+                                            ))}
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-1">Higher = more damage resistant</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs text-slate-600 dark:text-slate-400 mb-2">QR Size: {options.qrSize}px</label>
+                                        <input type="range" min="200" max="800" step="50" value={options.qrSize} onChange={e => setOptions({...options, qrSize: parseInt(e.target.value)})} className="w-full" />
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <input type="checkbox" checked={options.qrIncludeText} onChange={e => setOptions({...options, qrIncludeText: e.target.checked})} className="w-4 h-4" />
+                                        <label className="text-xs text-slate-700 dark:text-slate-300">Include text below QR code</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Preview Section */}
+                            <div className="space-y-6">
+                                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-indigo-200 dark:border-indigo-700 shadow-lg">
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wide">Live Preview - Scan This!</label>
+                                    <div className="aspect-square bg-white rounded-xl flex items-center justify-center border-2 border-slate-200 dark:border-slate-600 p-4">
+                                        {options.qrText ? (
+                                            <div className="text-center w-full">
+                                                <div className="w-full aspect-square bg-white rounded-lg shadow-xl flex items-center justify-center p-4">
+                                                    <canvas 
+                                                        ref={(canvas) => {
+                                                            if (canvas && options.qrText) {
+                                                                import('qrcode').then(QRCode => {
+                                                                    QRCode.toCanvas(canvas, options.qrText, {
+                                                                        width: 300,
+                                                                        margin: 2,
+                                                                        errorCorrectionLevel: options.qrErrorCorrection || 'H',
+                                                                        color: { dark: '#000000', light: '#FFFFFF' }
+                                                                    }).catch(err => console.error('QR Error:', err));
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-full h-full"
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-green-600 dark:text-green-400 mt-3 font-semibold">✓ Scan this with your phone!</p>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center p-8">
+                                                <QrCode className="w-20 h-20 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                                                <p className="text-sm text-slate-400 dark:text-slate-500">Enter content to preview</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+                                    <div className="flex items-start gap-3">
+                                        <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
+                                        <div>
+                                            <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1">Pro Tips:</p>
+                                            <ul className="text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                                                <li>• Keep URLs short for better scanning</li>
+                                                <li>• Test QR code before printing</li>
+                                                <li>• High contrast works best</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Generate Button - Desktop Only (appears at bottom) */}
+                        <div className="mt-8 hidden lg:block">
+                            <button 
+                                onClick={handleProcess}
+                                disabled={!options.qrText || isProcessing}
+                                className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-black text-lg shadow-2xl hover:shadow-3xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3 hover:-translate-y-1"
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <Loader2 className="animate-spin w-6 h-6" />
+                                        Generating QR PDF...
+                                    </>
+                                ) : (
+                                    <>
+                                        <QrCode className="w-6 h-6" />
+                                        Generate QR Code PDF
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         )}
 
         {/* State: Selected Files & Options */}
         {files.length > 0 && !result && (
-          <div className="flex-1 p-6 flex flex-col items-center w-full">
+          <div className="flex-1 p-4 md:p-6 flex flex-col items-center w-full">
              
              {/* File List / Grid */}
              {isImageTool ? (
@@ -597,7 +871,7 @@ const ToolWorkspace = () => {
                          ))}
                          {/* Add More Button */}
                          <div className="relative aspect-square rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-slate-400 hover:text-primary-500 hover:border-primary-500 transition-colors cursor-pointer">
-                             <input type="file" multiple onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
+                             <input type="file" multiple onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/jpeg,image/jpg,image/png,image/bmp,image/webp,image/svg+xml,image/heic" />
                              <Upload size={24} />
                              <span className="text-xs mt-2">Add</span>
                          </div>
@@ -695,42 +969,183 @@ const ToolWorkspace = () => {
                    </div>
                 )}
 
-                {/* PROTECT PDF */}
+                {/* PROTECT PDF - Smart Mode Selection */}
                 {isProtectTool && (
-                   <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Set Password</label>
+                  <>
+                    {/* Mode Toggle */}
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 mb-6">
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Mode</label>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => { setEncryptMode('encrypt'); setOptions({...options, password: ''}); }}
+                          className={clsx(
+                            "flex-1 py-3 px-4 rounded-lg border-2 font-semibold transition-all flex items-center justify-center gap-2",
+                            encryptMode === 'encrypt'
+                              ? "bg-green-600 text-white border-green-600 shadow-lg"
+                              : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-green-400"
+                          )}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          Encrypt PDF
+                        </button>
+                        <button
+                          onClick={() => { setEncryptMode('decrypt'); setOptions({...options, password: ''}); }}
+                          className={clsx(
+                            "flex-1 py-3 px-4 rounded-lg border-2 font-semibold transition-all flex items-center justify-center gap-2",
+                            encryptMode === 'decrypt'
+                              ? "bg-blue-600 text-white border-blue-600 shadow-lg"
+                              : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-blue-400"
+                          )}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                          </svg>
+                          Decrypt PDF
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
+                        {encryptMode === 'encrypt' ? '🔒 Secure your PDF with AES-256 encryption' : '🔓 Decrypt .aes256 or password-protected PDFs'}
+                      </p>
+                    </div>
+
+                    {/* Encrypt Mode UI */}
+                    {encryptMode === 'encrypt' && (
+                   <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20 p-8 rounded-2xl border-2 border-green-200 dark:border-green-800 space-y-6">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">🔒 Military-Grade AES-256 Encryption</h3>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">Same encryption used by banks, military, and government agencies worldwide.</p>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl border border-green-200 dark:border-green-700">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Set Encryption Password</label>
                         <input 
                           type="password" 
                           value={options.password}
                           onChange={e => setOptions({...options, password: e.target.value})}
-                          className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary-500 outline-none dark:text-white"
-                          placeholder="Enter a secure password (min 4 characters)"
+                          className="w-full px-4 py-3 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none dark:text-white font-mono text-lg"
+                          placeholder="Enter a strong password (min 8 characters)"
                         />
+                        {options.password && (
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Password Strength</span>
+                              <span className={clsx(
+                                "text-xs font-bold",
+                                options.password.length < 6 ? "text-red-600" :
+                                options.password.length < 8 ? "text-yellow-600" :
+                                options.password.length < 12 ? "text-blue-600" : "text-green-600"
+                              )}>
+                                {options.password.length < 6 ? "Weak" :
+                                 options.password.length < 8 ? "Fair" :
+                                 options.password.length < 12 ? "Strong" : "Very Strong"}
+                              </span>
+                            </div>
+                            <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className={clsx(
+                                "h-full transition-all duration-300 rounded-full",
+                                options.password.length < 6 ? "w-1/4 bg-red-500" :
+                                options.password.length < 8 ? "w-2/4 bg-yellow-500" :
+                                options.password.length < 12 ? "w-3/4 bg-blue-500" : "w-full bg-green-500"
+                              )} />
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-2">🔒 Password Security Tips:</p>
-                        <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
-                          <li>• Use at least 8 characters</li>
-                          <li>• Mix uppercase, lowercase, numbers & symbols</li>
-                          <li>• Avoid common words or personal info</li>
-                          <li>• Store password securely</li>
-                        </ul>
-                      </div>
-                      {options.password && (
-                        <div className="flex items-center gap-2">
-                          <div className={clsx(
-                            "h-2 flex-1 rounded-full",
-                            options.password.length < 6 ? "bg-red-500" :
-                            options.password.length < 8 ? "bg-yellow-500" : "bg-green-500"
-                          )} />
-                          <span className="text-xs font-medium">
-                            {options.password.length < 6 ? "Weak" :
-                             options.password.length < 8 ? "Medium" : "Strong"}
-                          </span>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-green-200 dark:border-green-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                            <span className="font-semibold text-slate-900 dark:text-white text-sm">Security Features</span>
+                          </div>
+                          <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 ml-7">
+                            <li>• AES-256-GCM encryption</li>
+                            <li>• Random IV generation</li>
+                            <li>• SHA-256 key derivation</li>
+                            <li>• Dual-layer protection</li>
+                          </ul>
                         </div>
-                      )}
+                        
+                        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-green-200 dark:border-green-700">
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
+                            <span className="font-semibold text-slate-900 dark:text-white text-sm">Password Tips</span>
+                          </div>
+                          <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 ml-7">
+                            <li>• Use 12+ characters</li>
+                            <li>• Mix letters, numbers, symbols</li>
+                            <li>• Avoid dictionary words</li>
+                            <li>• Store in password manager</li>
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-xl border border-amber-200 dark:border-amber-800">
+                        <div className="flex items-start gap-3">
+                          <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
+                          <div>
+                            <p className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1">⚠️ CRITICAL WARNING:</p>
+                            <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                              <strong>Without your password, the file CANNOT be recovered.</strong> AES-256 encryption is unbreakable - even with supercomputers. Save your password securely!
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                    </div>
+                    )}
+
+                    {/* Decrypt Mode UI */}
+                    {encryptMode === 'decrypt' && (
+                   <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 p-8 rounded-2xl border-2 border-blue-200 dark:border-blue-800 space-y-6">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">🔓 Decrypt AES-256 Protected PDF</h3>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">Decrypt files protected with military-grade AES-256 encryption or standard PDF passwords.</p>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl border border-blue-200 dark:border-blue-700">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Enter Decryption Password</label>
+                        <input 
+                          type="password" 
+                          value={options.password}
+                          onChange={e => setOptions({...options, password: e.target.value})}
+                          className="w-full px-4 py-3 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none dark:text-white font-mono text-lg"
+                          placeholder="Enter the password used to encrypt"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">💡 Works with both .aes256 encrypted files and standard password-protected PDFs</p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-start gap-3">
+                          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/></svg>
+                          <div>
+                            <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">Supported Formats:</p>
+                            <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                              <li>• <strong>.aes256</strong> files (AES-256-GCM encrypted)</li>
+                              <li>• <strong>.pdf</strong> files (Standard PDF password protection)</li>
+                              <li>• Automatically detects encryption type</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                   </div>
+                    )}
+                  </>
                 )}
 
                 {/* WATERMARK PDF */}
@@ -1367,25 +1782,25 @@ const ToolWorkspace = () => {
              )}
 
              {/* Actions */}
-             <div className="flex items-center gap-4">
+             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4 w-full sm:w-auto">
                <button 
                  onClick={() => { setFiles([]); setResult(null); }}
-                 className="px-6 py-3 rounded-xl font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+                 className="px-6 py-3 rounded-xl font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors active:scale-95 order-2 sm:order-1"
                >
                  Cancel
                </button>
                <button 
                  onClick={handleProcess}
                  disabled={isProcessing}
-                 className="flex items-center gap-2 px-8 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-lg shadow-primary-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
+                 className="flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-lg shadow-primary-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 order-1 sm:order-2"
                >
                  {isProcessing ? (
                    <>
-                    <Loader2 className="animate-spin" /> Processing...
+                    <Loader2 className="animate-spin" size={18} /> <span className="text-sm md:text-base">Processing...</span>
                    </>
                  ) : (
                    <>
-                    <Settings size={18} /> {tool.id === 'scan-pdf' ? 'Create PDF' : `Process ${files.length > 1 ? 'Batch' : 'PDF'}`}
+                    <Settings size={18} /> <span className="text-sm md:text-base">{tool.id === 'scan-pdf' ? 'Create PDF' : `Process ${files.length > 1 ? 'Batch' : 'PDF'}`}</span>
                    </>
                  )}
                </button>
@@ -1395,12 +1810,101 @@ const ToolWorkspace = () => {
 
         {/* State: Result */}
         {result && (
-          <div className="flex-1 flex flex-col items-center p-8 animate-fade-in">
-             <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-6">
-               <CheckCircle size={40} />
+          <div className="flex-1 flex flex-col items-center p-6 md:p-8 animate-fade-in">
+             <div className="w-16 h-16 md:w-20 md:h-20 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-4 md:mb-6">
+               <CheckCircle size={36} className="md:w-10 md:h-10" />
              </div>
-             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Success!</h2>
-             <p className="text-slate-500 mb-4">Processed {result.length} file{result.length !== 1 ? 's' : ''} successfully.</p>
+             <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2">Success!</h2>
+             <p className="text-sm md:text-base text-slate-500 mb-4 text-center px-4">Processed {result.length} file{result.length !== 1 ? 's' : ''} successfully.</p>
+             
+             {/* Encrypted File Download - Material Design */}
+             {isProtectTool && encryptMode === 'encrypt' && result && result.length > 0 && (
+               <div className="w-full max-w-2xl mb-8">
+                 <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20 rounded-2xl border-2 border-green-200 dark:border-green-700 overflow-hidden shadow-xl">
+                   {/* Header */}
+                   <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 text-white">
+                     <div className="flex items-center gap-3 mb-2">
+                       <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                         </svg>
+                       </div>
+                       <div>
+                         <h3 className="text-xl font-bold">Encryption Complete</h3>
+                         <p className="text-green-100 text-sm">Your file is now protected with AES-256 encryption</p>
+                       </div>
+                     </div>
+                   </div>
+                   
+                   {/* File Info */}
+                   <div className="p-6 space-y-4">
+                     <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-green-200 dark:border-green-700">
+                       <div className="flex items-center gap-3 mb-3">
+                         <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                           <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                           </svg>
+                         </div>
+                         <div className="flex-1 min-w-0">
+                           <p className="font-semibold text-slate-900 dark:text-white truncate">{result[0].name}</p>
+                           <p className="text-xs text-slate-500 dark:text-slate-400">{(result[0].data.byteLength / 1024).toFixed(2)} KB • AES-256-GCM</p>
+                         </div>
+                       </div>
+                       
+                       {/* Download Button */}
+                       <button
+                         onClick={() => handleDownload(result[0])}
+                         className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                       >
+                         <Download size={20} />
+                         Download Encrypted File
+                       </button>
+                     </div>
+                     
+                     {/* Security Info */}
+                     <div className="grid grid-cols-2 gap-3">
+                       <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm p-3 rounded-lg border border-green-200 dark:border-green-700">
+                         <div className="flex items-center gap-2 mb-1">
+                           <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                           <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Encryption</span>
+                         </div>
+                         <p className="text-xs text-slate-600 dark:text-slate-400">AES-256-GCM</p>
+                       </div>
+                       <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm p-3 rounded-lg border border-green-200 dark:border-green-700">
+                         <div className="flex items-center gap-2 mb-1">
+                           <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/></svg>
+                           <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Security</span>
+                         </div>
+                         <p className="text-xs text-slate-600 dark:text-slate-400">Military Grade</p>
+                       </div>
+                     </div>
+                     
+                     {/* Decrypt Instructions */}
+                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
+                       <div className="flex items-start gap-3">
+                         <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                         </svg>
+                         <div className="flex-1">
+                           <h4 className="font-semibold text-blue-900 dark:text-blue-200 text-sm mb-2">To Decrypt This File:</h4>
+                           <ol className="text-xs text-blue-800 dark:text-blue-300 space-y-1 mb-3">
+                             <li>1. Keep the <strong>.aes256</strong> file safe</li>
+                             <li>2. Remember your password (cannot be recovered)</li>
+                             <li>3. Use Decrypt mode in this tool</li>
+                           </ol>
+                           <button
+                             onClick={() => { setFiles([]); setResult(null); setEncryptMode('decrypt'); setOptions({...options, password: ''}); }}
+                             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
+                           >
+                             <Unlock size={14} /> Switch to Decrypt Mode
+                           </button>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             )}
              
              {/* Compression Stats */}
              {isCompressTool && files[0] && result[0] && (
@@ -1447,68 +1951,88 @@ const ToolWorkspace = () => {
                </div>
              )}
              
-             {/* Image Preview Grid for PDF to Image conversions */}
-             {isPdfToImageTool ? (
-               <div className="w-full max-w-6xl">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                   {result.map((res, i) => {
-                     const imageUrl = URL.createObjectURL(res.data);
-                     return (
-                       <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-                         <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-900 relative">
-                           <img 
-                             src={imageUrl} 
-                             alt={res.name}
-                             className="w-full h-full object-contain"
-                             onLoad={() => URL.revokeObjectURL(imageUrl)}
-                           />
-                         </div>
-                         <div className="p-4 space-y-3">
-                           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{res.name}</p>
-                           <button 
-                             onClick={() => handleDownload(res)}
-                             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-700 transition-colors"
-                           >
-                             <Download size={16} /> Download
-                           </button>
-                         </div>
+             {/* Universal Material Design Download UI */}
+             {result.length > 0 && (
+               <div className="w-full max-w-4xl mb-8">
+                 <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 overflow-hidden shadow-xl">
+                   {/* Header */}
+                   <div className="bg-gradient-to-r from-primary-600 to-indigo-600 p-6 text-white">
+                     <div className="flex items-center gap-3">
+                       <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                         <CheckCircle size={24} />
                        </div>
-                     );
-                   })}
-                 </div>
-                 <div className="flex gap-4 justify-center">
-                   <button 
-                     onClick={() => {
-                       result.forEach(res => handleDownload(res));
-                     }}
-                     className="px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:scale-105 transition-transform shadow-lg"
-                   >
-                     <Download size={18} className="inline mr-2" /> Download All ({result.length})
-                   </button>
-                   <button onClick={() => { setFiles([]); setResult(null); setOptions({...options, qrText: ''}) }} className="px-6 py-3 rounded-xl border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                     Start Over
-                   </button>
+                       <div>
+                         <h3 className="text-xl font-bold">Processing Complete</h3>
+                         <p className="text-primary-100 text-sm">{result.length} file{result.length > 1 ? 's' : ''} ready to download</p>
+                       </div>
+                     </div>
+                   </div>
+                   
+                   {/* Files Grid */}
+                   <div className="p-6">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                       {result.map((res, i) => {
+                         const isImage = res.type.startsWith('image/');
+                         const previewUrl = isImage ? URL.createObjectURL(new Blob([res.data], { type: res.type })) : null;
+                         
+                         return (
+                           <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-shadow">
+                             {/* Preview/Icon */}
+                             {isImage && previewUrl ? (
+                               <div className="aspect-video bg-slate-100 dark:bg-slate-900 relative overflow-hidden">
+                                 <img src={previewUrl} alt={res.name} className="w-full h-full object-contain" onLoad={() => URL.revokeObjectURL(previewUrl)} />
+                               </div>
+                             ) : (
+                               <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+                                 <div className="text-center">
+                                   <div className="text-6xl mb-2">{getFileIcon(res.name)}</div>
+                                   <div className="px-3 py-1 bg-white dark:bg-slate-700 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300">
+                                     {getFileExtension(res.name)}
+                                   </div>
+                                 </div>
+                               </div>
+                             )}
+                             
+                             {/* File Info */}
+                             <div className="p-4">
+                               <p className="font-semibold text-slate-900 dark:text-white truncate mb-1" title={res.name}>{res.name}</p>
+                               <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                                 {res.data instanceof Blob ? (res.data.size / 1024).toFixed(2) : (res.data.byteLength / 1024).toFixed(2)} KB
+                               </p>
+                               
+                               {/* Download Button */}
+                               <button
+                                 onClick={() => handleDownload(res)}
+                                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                               >
+                                 <Download size={16} />
+                                 Download
+                               </button>
+                             </div>
+                           </div>
+                         );
+                       })}
+                     </div>
+                     
+                     {/* Download All Button (if multiple files) */}
+                     {result.length > 1 && (
+                       <button
+                         onClick={() => result.forEach(res => handleDownload(res))}
+                         className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl hover:scale-[1.02] transition-transform shadow-lg"
+                       >
+                         <Download size={20} />
+                         Download All ({result.length} files)
+                       </button>
+                     )}
+                   </div>
                  </div>
                </div>
-             ) : (
-               /* Default download buttons for non-image conversions */
-               <>
-                 <div className="flex flex-wrap gap-4 justify-center max-w-2xl mb-8">
-                   {result.map((res, i) => (
-                     <button 
-                      key={i}
-                      onClick={() => handleDownload(res)}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:scale-105 transition-transform shadow-lg"
-                    >
-                      <Download size={18} /> Download {result.length > 1 ? `${i+1}` : ''}
-                    </button>
-                   ))}
-                 </div>
-                 <button onClick={() => { setFiles([]); setResult(null); setOptions({...options, qrText: ''}) }} className="text-primary-500 hover:underline">
-                   Start Over
-                 </button>
-               </>
              )}
+             
+             {/* Start Over Button */}
+             <button onClick={() => { setFiles([]); setResult(null); setOptions({...options, qrText: '', password: ''}) }} className="px-6 py-3 text-primary-600 hover:text-primary-700 font-semibold hover:underline transition-colors">
+               ← Start Over
+             </button>
           </div>
         )}
       </div>
@@ -1518,36 +2042,86 @@ const ToolWorkspace = () => {
 
 // 5. HISTORY PAGE
 const HistoryPage = () => {
-  const [history, setHistory] = useState<any[]>([]);
+  const location = useLocation();
+  const [items, setItems] = useState<any[]>([]);
+  const [isHistory, setIsHistory] = useState(location.pathname === '/history');
+  
   useEffect(() => {
-    setHistory(JSON.parse(localStorage.getItem('history') || '[]'));
-  }, []);
+    const newIsHistory = location.pathname === '/history';
+    setIsHistory(newIsHistory);
+    
+    try {
+      if (newIsHistory) {
+        const history = JSON.parse(localStorage.getItem('history') || '[]');
+        setItems(history);
+      } else {
+        const favs = JSON.parse(localStorage.getItem('favs') || '[]');
+        const favoriteTools = favs.map((id: string) => ALL_TOOLS.find(t => t.id === id)).filter(Boolean);
+        setItems(favoriteTools);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setItems([]);
+    }
+  }, [location.pathname]);
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8 dark:text-white">Recent Activity</h1>
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
-        {history.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">No history yet.</div>
-        ) : (
-          history.map((item, i) => (
-            <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg">
-                  <Clock size={20} className="text-slate-500" />
-                </div>
-                <div>
-                  <p className="font-medium text-slate-900 dark:text-white">{item.toolName}</p>
-                  <p className="text-xs text-slate-500">{item.fileName} • {new Date(item.timestamp).toLocaleString()}</p>
-                </div>
-              </div>
-              <Link to={`/tool/${item.id}`} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full">
-                <ArrowRight size={18} />
-              </Link>
-            </div>
-          ))
-        )}
+    <div className="p-8 max-w-4xl mx-auto animate-fade-in">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+          {isHistory ? '🕐 Recent Activity' : '❤️ Favorite Tools'}
+        </h1>
+        <p className="text-slate-500 dark:text-slate-400">
+          {isHistory ? 'Your recently used tools' : 'Quick access to your favorite tools'}
+        </p>
       </div>
+
+      {/* Content */}
+      {isHistory ? (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700 shadow-sm">
+          {items.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock size={32} className="text-slate-400" />
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">No history yet</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Start using tools to see your activity here</p>
+            </div>
+          ) : (
+            items.map((item, i) => (
+              <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-lg group-hover:bg-primary-100 dark:group-hover:bg-primary-900/30 transition-colors">
+                    <Clock size={20} className="text-slate-500 group-hover:text-primary-600 transition-colors" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 dark:text-white">{item.toolName}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.fileName} • {new Date(item.timestamp).toLocaleString()}</p>
+                  </div>
+                </div>
+                <Link to={`/tool/${item.id}`} className="p-2 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-full transition-colors">
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        items.length === 0 ? (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center shadow-sm">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart size={32} className="text-slate-400" />
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">No favorites yet</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Click the heart icon on any tool to add it here</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {items.map((tool: any) => tool && <ToolCard key={tool.id} tool={tool} />)}
+          </div>
+        )
+      )}
     </div>
   );
 }
@@ -1581,6 +2155,7 @@ const App = () => {
               <Route path="/tool/:id" element={<ToolWorkspace />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/favorites" element={<HistoryPage />} />
+
             </Routes>
           </div>
 

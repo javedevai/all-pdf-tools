@@ -51,11 +51,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
         )}
       >
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
-            U
-          </div>
+          <img src="/favicon.svg" alt="Logo" className="w-8 h-8" />
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300">
-            UltraPDF
+            All PDF Tools
           </h1>
         </div>
 

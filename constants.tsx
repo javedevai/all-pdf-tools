@@ -66,7 +66,7 @@ export const ALL_TOOLS: Tool[] = [
 
   // --- SECURITY ---
   createTool('unlock-pdf', 'Unlock PDF', ToolCategory.SECURITY, 'Remove password security from PDF.', Unlock, { popular: true }),
-  createTool('protect-pdf', 'Protect PDF', ToolCategory.SECURITY, 'Encrypt your PDF with a password.', Lock),
+  createTool('protect-pdf', 'Protect PDF', ToolCategory.SECURITY, 'Encrypt or decrypt PDFs with military-grade AES-256 encryption.', Lock),
   createTool('sign-pdf', 'Sign PDF', ToolCategory.SECURITY, 'Add a digital signature to your PDF.', PenTool, { popular: true }),
   createTool('watermark-pdf', 'Watermark', ToolCategory.SECURITY, 'Stamp an image or text over your PDF.', Stamp),
   createTool('redact-pdf', 'Redact PDF', ToolCategory.SECURITY, 'Permanently black out sensitive text.', Eraser),
@@ -75,7 +75,6 @@ export const ALL_TOOLS: Tool[] = [
 
   // --- EDIT ---
   createTool('compress-pdf', 'Compress PDF', ToolCategory.EDIT, 'Reduce file size while maintaining quality.', Minimize2, { popular: true }),
-  createTool('edit-pdf', 'Edit PDF', ToolCategory.EDIT, 'Add text, shapes, comments and highlights.', PenTool),
   createTool('page-numbers', 'Page Numbers', ToolCategory.EDIT, 'Add page numbers to your PDF.', FileDigit),
   createTool('add-header-footer', 'Header & Footer', ToolCategory.EDIT, 'Add custom headers and footers.', Layout),
   createTool('crop-pdf', 'Crop PDF', ToolCategory.EDIT, 'Crop pages to a specific size.', Crop),
@@ -94,7 +93,7 @@ export const ALL_TOOLS: Tool[] = [
   createTool('optimize-web', 'Optimize for Web', ToolCategory.ADVANCED, 'Linearize PDF for fast web view.', Wand2),
   createTool('meta-edit', 'Edit Metadata', ToolCategory.ADVANCED, 'Change title, author, and keywords.', FileCode),
   createTool('set-viewer', 'Viewer Prefs', ToolCategory.ADVANCED, 'Set initial view settings (zoom, layout).', Eye),
-  createTool('extract-fonts', 'Extract Fonts', ToolCategory.ADVANCED, 'Get font files used in PDF.', Type),
+  createTool('extract-fonts', 'Extract Fonts', ToolCategory.ADVANCED, 'Professional font analysis with detailed reports, usage statistics, and health checks.', Type),
   createTool('analyze-pdf', 'Analyze PDF', ToolCategory.ADVANCED, 'Get detailed structure info.', FileCheck),
   createTool('certificate-sign', 'Certify PDF', ToolCategory.SECURITY, 'Sign with a digital certificate ID.', Shield),
   createTool('timestamp-pdf', 'Timestamp PDF', ToolCategory.SECURITY, 'Add trusted timestamp.', FileCheck),
@@ -110,7 +109,6 @@ export const ALL_TOOLS: Tool[] = [
   createTool('split-by-text', 'Split by Text', ToolCategory.ORGANIZE, 'Split when specific text changes.', Split),
   createTool('n-up', 'N-Up', ToolCategory.ORGANIZE, 'Fit multiple pages on one sheet.', Grid),
   createTool('booklet-maker', 'Booklet', ToolCategory.ORGANIZE, 'Reorder pages for booklet printing.', Layers),
-  createTool('share-link', 'Share Link', ToolCategory.ADVANCED, 'Upload and get a shareable link.', Share2),
   createTool('qr-to-pdf', 'QR to PDF', ToolCategory.CONVERT_TO, 'Create PDF from QR content.', Smartphone),
   createTool('barcode-pdf', 'Barcode Stamp', ToolCategory.SECURITY, 'Add barcode to pages.', Stamp),
   createTool('pdf-to-long-img', 'Long Image', ToolCategory.CONVERT_FROM, 'Convert all pages to one tall image.', Image),

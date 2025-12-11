@@ -2,7 +2,7 @@
 
 > **A comprehensive, privacy-first PDF toolbox with 100+ tools for merging, splitting, converting, and editing PDFs entirely in your browser.**
 
-[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Visit_Website-blue?style=for-the-badge)](https://all-pdf-tools.vercel.app/#/)
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Visit_Website-blue?style=for-the-badge)](https://allpdftools.vercel.app/#/)
 [![React](https://img.shields.io/badge/React-19.2.1-61DAFB?style=flat&logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.2-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6.2.0-646CFF?style=flat&logo=vite)](https://vitejs.dev/)
@@ -94,7 +94,7 @@ npm run preview
 
 ## 🌐 Live Demo
 
-**🔗 [Try UltraPDF Tools Now](https://all-pdf-tools.vercel.app/#/)**
+**🔗 [Try UltraPDF Tools Now](https://allpdftools.vercel.app/#/)**
 
 Experience all features instantly in your browser - no installation required!
 
@@ -158,7 +158,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**[🌐 Visit UltraPDF Tools](https://all-pdf-tools.vercel.app/#/) | [📧 Report Issues](https://github.com/javedevai/all-pdf-tools/issues) | [⭐ Star on GitHub](https://github.com/javedevai/all-pdf-tools)**
+**[🌐 Visit UltraPDF Tools](https://allpdftools.vercel.app/#/) | [📧 Report Issues](https://github.com/javedevai/all-pdf-tools/issues) | [⭐ Star on GitHub](https://github.com/javedevai/all-pdf-tools)**
 
 Made with ❤️ for the PDF community
 
