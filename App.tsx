@@ -798,9 +798,7 @@ const App = () => {
             </Routes>
           </div>
 
-          <footer className="py-8 text-center text-slate-400 text-sm border-t border-slate-200 dark:border-slate-800">
-            <p>© 2024 UltraPDF Tools. Privacy First. 100% Client-side processing.</p>
-          </footer>
+
         </main>
       </div>
     </HashRouter>
