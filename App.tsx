@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { ALL_TOOLS } from './constants';
 import Sidebar from './components/Sidebar';
 
@@ -2122,6 +2123,7 @@ const App = () => {
 
         </main>
       </div>
+      <Analytics />
     </BrowserRouter>
   );
 };
